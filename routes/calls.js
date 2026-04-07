@@ -35,7 +35,8 @@ router.post('/sync', async (req, res) => {
         console.log('Invalid call data:', call,'device_call_id:', device_call_id,'client_phone:', client_phone,'start_at:', start_at,'type:', type,'contact_name:', contact_name,'duration:', duration,'normalizedEmpPhone:', normalizedEmpPhone,'normalizedClientPhone:', normalizedClientPhone,'isUnique:', isUnique,'callResult:', callResult,'syncedDeviceIds:', syncedDeviceIds);
         continue;
       }
-    console.log("valid call data", client_phone, duration);
+
+      console.log("valid call data", client_phone, duration, device_call_id);
     
       const normalizedClientPhone = normalizePhone(client_phone);
 
