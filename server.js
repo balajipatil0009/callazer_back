@@ -20,7 +20,7 @@ app.use('/api/employees', employeesRouter);
 app.use('/api/calls', callsRouter);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
-
+app.get('/', (_req, res) => res.json({ ok: true }));
 // Run schema.sql to create all tables, enums, and indexes
 // app.post('/api/setup', async (_req, res) => {
 //   try {

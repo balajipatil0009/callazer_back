@@ -6,6 +6,8 @@ const router = Router();
 
 // POST /api/calls/sync
 router.post('/sync', async (req, res) => {
+  console.log("calls sync request received");
+  
   const client = await pool.connect();
   try {
     const { employee_code, employee_phone, calls } = req.body;
@@ -30,9 +32,11 @@ router.post('/sync', async (req, res) => {
       } = call;
 
       if (!device_call_id || !client_phone || !start_at || type === undefined) {
+        console.log('Invalid call data:', call,'device_call_id:', device_call_id,'client_phone:', client_phone,'start_at:', start_at,'type:', type,'contact_name:', contact_name,'duration:', duration,'normalizedEmpPhone:', normalizedEmpPhone,'normalizedClientPhone:', normalizedClientPhone,'isUnique:', isUnique,'callResult:', callResult,'syncedDeviceIds:', syncedDeviceIds);
         continue;
       }
-
+    console.log("valid call data", client_phone, duration);
+    
       const normalizedClientPhone = normalizePhone(client_phone);
 
       // Upsert client — first-writer-wins for name
