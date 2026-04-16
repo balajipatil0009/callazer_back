@@ -26,6 +26,7 @@ CREATE TABLE clients (
 CREATE TABLE employees (
     employee_code VARCHAR(50) PRIMARY KEY,
     employee_name VARCHAR(100) NOT NULL,
+    employee_phone VARCHAR(20),
     model_name VARCHAR(100),
     app_version VARCHAR(20),
     registered_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

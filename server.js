@@ -9,6 +9,7 @@ const pool = require('./db/pool');
 const { testConnection } = pool;
 const employeesRouter = require('./routes/employees');
 const callsRouter = require('./routes/calls');
+const webRouter = require('./routes/web');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,6 +19,7 @@ app.use(express.json());
 
 app.use('/api/employees', employeesRouter);
 app.use('/api/calls', callsRouter);
+app.use('/api/web', webRouter);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.get('/', (_req, res) => res.json({ ok: true }));

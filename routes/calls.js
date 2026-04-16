@@ -17,6 +17,10 @@ router.post('/sync', async (req, res) => {
     }
 
     const normalizedEmpPhone = normalizePhone(employee_phone);
+    if (!normalizedEmpPhone) {
+      return res.status(400).json({ error: 'employee_phone must contain a valid number' });
+    }
+
     const syncedDeviceIds = [];
 
     await client.query('BEGIN');
@@ -32,13 +36,17 @@ router.post('/sync', async (req, res) => {
       } = call;
 
       if (!device_call_id || !client_phone || !start_at || type === undefined) {
-        console.log('Invalid call data:', call,'device_call_id:', device_call_id,'client_phone:', client_phone,'start_at:', start_at,'type:', type,'contact_name:', contact_name,'duration:', duration,'normalizedEmpPhone:', normalizedEmpPhone,'normalizedClientPhone:', normalizedClientPhone,'isUnique:', isUnique,'callResult:', callResult,'syncedDeviceIds:', syncedDeviceIds);
+        console.log('Invalid call data:', call);
         continue;
       }
 
-      console.log("valid call data", client_phone, duration, device_call_id);
-    
       const normalizedClientPhone = normalizePhone(client_phone);
+      if (!normalizedClientPhone) {
+        console.log('Skipping call — empty client_phone after normalize', device_call_id);
+        continue;
+      }
+
+      console.log('valid call data', client_phone, duration, device_call_id);
 
       // Upsert client — first-writer-wins for name
       const clientResult = await client.query(
@@ -72,18 +80,18 @@ router.post('/sync', async (req, res) => {
       }
     }
 
-    // Update employee timestamps
+    // Update employee timestamps and latest known phone (web directory; mobile contract unchanged)
     if (syncedDeviceIds.length > 0) {
       await client.query(
         `UPDATE employees
-         SET last_call_at = NOW(), last_sync_at = NOW()
+         SET last_call_at = NOW(), last_sync_at = NOW(), employee_phone = $2
          WHERE employee_code = $1`,
-        [employee_code]
+        [employee_code, normalizedEmpPhone]
       );
     } else {
       await client.query(
-        `UPDATE employees SET last_sync_at = NOW() WHERE employee_code = $1`,
-        [employee_code]
+        `UPDATE employees SET last_sync_at = NOW(), employee_phone = $2 WHERE employee_code = $1`,
+        [employee_code, normalizedEmpPhone]
       );
     }
 
