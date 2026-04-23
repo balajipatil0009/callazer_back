@@ -22,6 +22,8 @@ router.post('/sync', async (req, res) => {
     }
 
     const syncedDeviceIds = [];
+    let insertedCount = 0;
+    let ackedDuplicateCount = 0;
 
     await client.query('BEGIN');
 
@@ -46,7 +48,6 @@ router.post('/sync', async (req, res) => {
         continue;
       }
 
-      console.log('valid call data', client_phone, duration, device_call_id);
 
       // Upsert client — first-writer-wins for name
       const clientResult = await client.query(
@@ -57,12 +58,17 @@ router.post('/sync', async (req, res) => {
       );
       const isUnique = clientResult.rowCount > 0;
 
-      // Insert call with dedup
+      // Insert call with dedup. We RETURN on insert to distinguish a fresh
+      // write from a conflict; on conflict we fall back to a SELECT so we can
+      // still acknowledge the device_call_id to the client. Without this ack
+      // the client's queue would never mark the row synced and would keep
+      // re-uploading the same call forever.
       const callResult = await client.query(
         `INSERT INTO calls
            (employee_code, employee_phone, client_phone, start_at, duration, type, is_unique, device_call_id)
          VALUES ($1, $2, $3, to_timestamp($4 / 1000.0), $5, $6, $7, $8)
-         ON CONFLICT (employee_code, device_call_id) DO NOTHING`,
+         ON CONFLICT (employee_code, device_call_id) DO NOTHING
+         RETURNING device_call_id`,
         [
           employee_code,
           normalizedEmpPhone,
@@ -77,11 +83,23 @@ router.post('/sync', async (req, res) => {
 
       if (callResult.rowCount > 0) {
         syncedDeviceIds.push(device_call_id);
+        insertedCount++;
+        console.log('inserted call', client_phone, duration, device_call_id);
+      } else {
+        const existing = await client.query(
+          `SELECT 1 FROM calls WHERE employee_code = $1 AND device_call_id = $2`,
+          [employee_code, device_call_id]
+        );
+        if (existing.rowCount > 0) {
+          syncedDeviceIds.push(device_call_id);
+          ackedDuplicateCount++;
+        }
       }
     }
 
-    // Update employee timestamps and latest known phone (web directory; mobile contract unchanged)
-    if (syncedDeviceIds.length > 0) {
+    // Update employee timestamps and latest known phone. last_call_at only
+    // advances when we actually wrote a new row — ack'd duplicates don't count.
+    if (insertedCount > 0) {
       await client.query(
         `UPDATE employees
          SET last_call_at = NOW(), last_sync_at = NOW(), employee_phone = $2
@@ -96,6 +114,10 @@ router.post('/sync', async (req, res) => {
     }
 
     await client.query('COMMIT');
+
+    console.log(
+      `sync ${employee_code}: received=${calls.length} inserted=${insertedCount} acked_duplicate=${ackedDuplicateCount}`
+    );
 
     res.json({ synced_device_ids: syncedDeviceIds });
   } catch (err) {
