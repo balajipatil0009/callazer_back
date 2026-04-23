@@ -15,7 +15,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
+// Raise the body limit — call-sync batches during backlog drain can exceed
+// the default 100kb (a batch of 500 calls is ~100–200 KB of JSON).
+app.use(express.json({ limit: '10mb' }));
 
 app.use('/api/employees', employeesRouter);
 app.use('/api/calls', callsRouter);
